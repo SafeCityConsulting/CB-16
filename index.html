@@ -1,18 +1,4 @@
 <!DOCTYPE html>
-<!--
-  ============================================================
-  CB-16-2024 Late Night Business Safety Training Portal
-  Copyright (c) 2025 Safe City Consulting LLC
-  All Rights Reserved.
-
-  UNAUTHORIZED copying, redistribution, modification, resale,
-  or access without express written consent is strictly
-  prohibited and may constitute a violation of federal
-  copyright law (17 U.S.C. Section 501).
-
-  For licensing inquiries: Safe City Consulting LLC
-  ============================================================
--->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1069,6 +1055,7 @@ function toggleDemo(){const s=document.getElementById('demoStatus');s.textConten
 // ============================================================
 let ttsSupported = ('speechSynthesis' in window);
 let ttsSpeaking = false;
+let ttsPaused   = false;
 let ttsUtterance = null;
 let ttsAutoTimer = null;   // holds the 3-second auto-play delay
 
@@ -1085,24 +1072,30 @@ function updateNarrationBar(){
     return;
   }
   const slide = slides[appState.currentSlide];
-  if(!ttsSpeaking){
+  if(ttsSpeaking){
+    btn.textContent = '⏸';
+    btn.classList.add('speaking');
+    preview.textContent = '🔊 Reading slide — Next unlocks when audio finishes…';
+    preview.classList.add('speaking');
+    stopBtn.classList.add('show');
+  } else if(ttsPaused){
+    btn.textContent = '▶';
+    btn.classList.remove('speaking');
+    preview.textContent = '⏸ Paused — tap ▶ to resume';
+    preview.classList.remove('speaking');
+    stopBtn.classList.add('show');
+  } else {
     btn.textContent = '▶';
     btn.classList.remove('speaking');
     if(audioDone){
       preview.textContent = '✅ Audio complete';
-    } else if(slide.narration){
+    } else if(slide && slide.narration){
       preview.textContent = 'Auto-plays in 3 seconds — or tap ▶ to start now';
     } else {
       preview.textContent = 'No narration for this slide';
     }
     preview.classList.remove('speaking');
     stopBtn.classList.remove('show');
-  } else {
-    btn.textContent = '⏸';
-    btn.classList.add('speaking');
-    preview.textContent = '🔊 Reading slide — Next unlocks when audio finishes…';
-    preview.classList.add('speaking');
-    stopBtn.classList.add('show');
   }
 }
 
@@ -1110,6 +1103,8 @@ function toggleNarration(){
   if(!ttsSupported){ showToast('Audio narration is not supported on this browser.'); return; }
   if(ttsSpeaking){
     pauseNarration();
+  } else if(ttsPaused){
+    resumeNarration();
   } else {
     startNarration();
   }
@@ -1141,7 +1136,7 @@ function startNarration(){
     updateNarrationBar();
     markAudioDone();          // audio gate: treat error as "done" so user isn't stuck
   };
-  ttsUtterance.onpause = () => { ttsSpeaking = false; updateNarrationBar(); };
+  ttsUtterance.onpause = () => { ttsSpeaking = false; ttsPaused = true; updateNarrationBar(); };
   ttsUtterance.onresume = () => { ttsSpeaking = true; updateNarrationBar(); };
   window.speechSynthesis.speak(ttsUtterance);
   ttsSpeaking = true;
@@ -1152,6 +1147,16 @@ function pauseNarration(){
   if(window.speechSynthesis.speaking){
     window.speechSynthesis.pause();
     ttsSpeaking = false;
+    ttsPaused   = true;
+    updateNarrationBar();
+  }
+}
+
+function resumeNarration(){
+  if(ttsPaused){
+    window.speechSynthesis.resume();
+    ttsSpeaking = true;
+    ttsPaused   = false;
     updateNarrationBar();
   }
 }
@@ -1164,6 +1169,7 @@ function stopNarration(markDone){
   cancelAutoTimer();
   window.speechSynthesis.cancel();
   ttsSpeaking = false;
+  ttsPaused   = false;
   ttsUtterance = null;
   updateNarrationBar();
   // If called by user tapping Stop (markDone=true), open the audio gate
